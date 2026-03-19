@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
-import Flipbook from "./components/flipbook";
+import Book from "./components/book";
 import Library from "./components/library";
 
 
@@ -9,7 +9,7 @@ export default function App() {
       <div style={{ padding: '20px' }}>
         <Routes>
           <Route path="/" element={<Library />} />
-          <Route path="/flipbook/:pdfname" element={<Flipbook />} />
+          <Route path="/flipbook/:pdfname" element={<Book />} />
         </Routes>
       </div>
     </Router>
