@@ -19,6 +19,11 @@ export default function Book() {
       .catch(() => setTitle(pdfname?.replace(/-/g, " ")));
   }, [pdfname]);
 
+  useEffect(() => {
+    document.title = title ?? "Flipbook";
+    return () => { document.title = "Flipbook"; }; // reset on unmount
+  }, [title]);
+
   return (
     <div className="min-h-screen bg-white">
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
