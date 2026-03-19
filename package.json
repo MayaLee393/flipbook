@@ -2,17 +2,24 @@
   "name": "flipbook",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://MayaLee393.github.io/flipbook",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.0",
+    "pdfjs-dist": "^4.8.69",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-pageflip": "^2.0.3",
+    "react-pdf": "^9.2.1",
+    "react-router-dom": "^7.13.1",
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
@@ -35,5 +42,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
   }
 }
