@@ -1,4 +1,5 @@
 [
-  { "pdfName": "vector-databses-guide", "title": "Vector Databases Guide" },
-  { "pdfName": "KY_Combined", "title": "KỶ YẾU 60 NĂM VĐH CẦN THƠ" }
+  { "pdfName": "KY_Combined", "title": "KỶ YẾU 60 NĂM VĐH CẦN THƠ" },
+  { "pdfName": "clean_code", "title": "Clean Code"},
+  { "pdfName": "dependency_injection", "title": "Dependency Injection"}
 ]
