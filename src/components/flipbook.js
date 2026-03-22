@@ -1,9 +1,10 @@
 import HTMLFlipBook from "react-pageflip";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useState, useRef, useEffect } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, PanelRight } from "lucide-react";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
+import BookmarkDrawer from "./bookmark";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
@@ -14,6 +15,15 @@ const PDF_OPTIONS = {
   cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
   cMapPacked: true,
   standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
+};
+
+const storageKey = (pdfName) => `bookmarks:${pdfName}`;
+const loadBookmarks = (pdfName) => {
+  try { return JSON.parse(localStorage.getItem(storageKey(pdfName))) || []; }
+  catch { return []; }
+};
+const saveBookmarks = (pdfName, bookmarks) => {
+  localStorage.setItem(storageKey(pdfName), JSON.stringify(bookmarks));
 };
 
 const ArrowButton = ({ onClick, label, children }) => (
@@ -47,10 +57,7 @@ const GoToPage = ({ numPages, onSkip }) => {
         placeholder="…"
         className="w-14 bg-gray-100 border border-black text-black rounded px-2 py-1 text-sm text-center outline-none"
       />
-      <button
-        onClick={handle}
-        className="bg-gray-100 border border-black text-black font-bold text-xs px-3 py-1.5 rounded hover:bg-gray-200"
-      >
+      <button onClick={handle} className="bg-gray-100 border border-black text-black font-bold text-xs px-3 py-1.5 rounded hover:bg-gray-200">
         Go
       </button>
     </div>
@@ -58,20 +65,19 @@ const GoToPage = ({ numPages, onSkip }) => {
 };
 
 const Spinner = ({ width, height }) => (
-  <div
-    className="flex items-center justify-center bg-white"
-    style={{ width, height }}
-  >
+  <div className="flex items-center justify-center bg-white" style={{ width, height }}>
     <div className="w-10 h-10 border-4 border-gray-200 border-t-black rounded-full animate-spin" />
   </div>
 );
 
-export default function Flipbook({ pdfName }) {
+export default function Flipbook({ pdfName, version = 1  }) {
   const [numPages, setNumPages] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [pageWidth, setPageWidth] = useState(400);
   const [error, setError] = useState(null);
   const [firstPageRendered, setFirstPageRendered] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [bookmarks, setBookmarks] = useState(() => loadBookmarks(pdfName));
   const bookRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 900);
 
@@ -86,14 +92,14 @@ export default function Flipbook({ pdfName }) {
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  // Reset when PDF changes
   useEffect(() => {
     setFirstPageRendered(false);
     setNumPages(null);
     setError(null);
+    setBookmarks(loadBookmarks(pdfName));
   }, [pdfName]);
 
-  const pdfUrl = `${process.env.PUBLIC_URL}/pdfs/${pdfName}.pdf`;
+  const pdfUrl = `${process.env.PUBLIC_URL}/pdfs/${pdfName}.pdf?v=${version}`;
   const pageHeight = Math.round(PAGE_HEIGHT * (pageWidth / 400));
 
   const safariNext = () => setCurrentPage((p) => Math.min(p + 1, (numPages || 1) - 1));
@@ -115,9 +121,61 @@ export default function Flipbook({ pdfName }) {
     }
   };
 
+  // Stored as spread index, jump back using spread index directly
+  const handleJump = (spreadIndex) => {
+    if (isSafari) {
+      setCurrentPage(spreadIndex);
+    } else {
+      const pageIndex = isMobile ? spreadIndex : spreadIndex * 2;
+      bookRef.current?.pageFlip().turnToPage(pageIndex);
+      setCurrentPage(spreadIndex);
+    }
+  };
+
+  // Store currentPage (spread index) — drawer handles display conversion
+  const handleAddBookmark = (title) => {
+    const updated = [...bookmarks, { id: Date.now(), title, page: currentPage }];
+    setBookmarks(updated);
+    saveBookmarks(pdfName, updated);
+  };
+
+  const handleDeleteBookmark = (id) => {
+    const updated = bookmarks.filter((b) => b.id !== id);
+    setBookmarks(updated);
+    saveBookmarks(pdfName, updated);
+  };
+
+  const bookmarkBtn = (
+    <button
+      onClick={() => setDrawerOpen(true)}
+      className="relative flex items-center gap-1.5 text-sm border border-black text-black px-3 py-1.5 rounded hover:bg-gray-100 transition-colors"
+    >
+      <PanelRight size={15} />
+      <span className="hidden sm:inline">Bookmarks</span>
+      {bookmarks.length > 0 && (
+        <span className="absolute -top-1.5 -right-1.5 bg-black text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
+          {bookmarks.length}
+        </span>
+      )}
+    </button>
+  );
+
+  const drawerProps = {
+    open: drawerOpen,
+    onClose: () => setDrawerOpen(false),
+    bookmarks,
+    currentPage,   // spread index — drawer converts to display
+    isMobile,
+    onAdd: handleAddBookmark,
+    onDelete: handleDeleteBookmark,
+    onJump: handleJump,
+  };
+
   if (isSafari) {
     return (
-      <div className="flex flex-col items-center font-serif px-4 py-8 gap-6">
+      <div className="flex flex-col items-center px-4 py-8 gap-6 overflow-x-hidden w-full">
+        <BookmarkDrawer {...drawerProps} />
+
         <div className="relative">
           {!firstPageRendered && (
             <div className="absolute inset-0 z-10">
@@ -150,17 +208,16 @@ export default function Flipbook({ pdfName }) {
         {numPages && (
           <div className="flex flex-col items-center gap-3">
             <div className="flex items-center gap-6">
-              <ArrowButton onClick={safariPrev} label="Previous page">
-                <ArrowLeft />
-              </ArrowButton>
+              <ArrowButton onClick={safariPrev} label="Previous page"><ArrowLeft /></ArrowButton>
               <span className="text-sm text-black min-w-[100px] text-center">
                 {currentPage + 1} of {numPages}
               </span>
-              <ArrowButton onClick={safariNext} label="Next page">
-                <ArrowRight />
-              </ArrowButton>
+              <ArrowButton onClick={safariNext} label="Next page"><ArrowRight /></ArrowButton>
             </div>
-            <GoToPage numPages={numPages} onSkip={handleSkip} />
+            <div className="flex items-center gap-4">
+              <GoToPage numPages={numPages} onSkip={handleSkip} />
+              {bookmarkBtn}
+            </div>
           </div>
         )}
       </div>
@@ -168,7 +225,9 @@ export default function Flipbook({ pdfName }) {
   }
 
   return (
-    <div className="flex flex-col items-center font-serif px-4 py-8">
+    <div className="flex flex-col items-center px-4 py-8 overflow-x-hidden w-full">
+      <BookmarkDrawer {...drawerProps} />
+
       <div className="flex items-center gap-6">
         <div className="hidden md:block">
           <ArrowButton onClick={goPrev} label="Previous page"><ArrowLeft /></ArrowButton>
@@ -177,10 +236,7 @@ export default function Flipbook({ pdfName }) {
         <div className="relative shadow-[0_20px_60px_rgba(0,0,0,0.7),0_0_0_1px_#3a2e1e] rounded-sm">
           {!firstPageRendered && (
             <div className="absolute inset-0 z-10 rounded-sm overflow-hidden">
-              <Spinner
-                width={isMobile ? pageWidth : pageWidth * 2}
-                height={pageHeight}
-              />
+              <Spinner width={isMobile ? pageWidth : pageWidth * 2} height={pageHeight} />
             </div>
           )}
           <Document
@@ -216,10 +272,7 @@ export default function Flipbook({ pdfName }) {
               </HTMLFlipBook>
             )}
             {!numPages && !error && (
-              <Spinner
-                width={isMobile ? pageWidth : pageWidth * 2}
-                height={pageHeight}
-              />
+              <Spinner width={isMobile ? pageWidth : pageWidth * 2} height={pageHeight} />
             )}
           </Document>
         </div>
@@ -245,10 +298,12 @@ export default function Flipbook({ pdfName }) {
             </span>
             <span>|</span>
             <GoToPage numPages={numPages} onSkip={handleSkip} />
+            {bookmarkBtn}
           </div>
 
-          <div className="flex md:hidden">
+          <div className="flex md:hidden items-center gap-4">
             <GoToPage numPages={numPages} onSkip={handleSkip} />
+            {bookmarkBtn}
           </div>
         </div>
       )}

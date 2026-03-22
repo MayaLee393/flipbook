@@ -7,21 +7,27 @@ export default function Book() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const [title, setTitle] = useState(state?.title ?? null);
+  const [version, setVersion] = useState(state?.version ?? null);
 
   useEffect(() => {
-    if (title) return;
+    // Only fetch if we're missing title or version (i.e. direct link)
+    if (title && version !== null) return;
     fetch(`${process.env.PUBLIC_URL}/pdfs/manifest.json`)
       .then(r => r.json())
       .then(data => {
         const match = data.find(b => b.pdfName === pdfname);
         setTitle(match?.title ?? pdfname?.replace(/-/g, " "));
+        setVersion(match?.version ?? 1);
       })
-      .catch(() => setTitle(pdfname?.replace(/-/g, " ")));
+      .catch(() => {
+        setTitle(pdfname?.replace(/-/g, " "));
+        setVersion(1);
+      });
   }, [pdfname]);
 
   useEffect(() => {
     document.title = title ?? "Flipbook";
-    return () => { document.title = "Flipbook"; }; // reset on unmount
+    return () => { document.title = "Flipbook"; };
   }, [title]);
 
   return (
@@ -38,7 +44,8 @@ export default function Book() {
         </h2>
         <div className="w-24" />
       </div>
-      <Flipbook pdfName={pdfname} />
+      {/* Wait until version is resolved before rendering Flipbook */}
+      {version !== null && <Flipbook pdfName={pdfname} version={version} />}
     </div>
   );
 }
